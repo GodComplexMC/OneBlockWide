@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Collection;
 
 public class GameMap implements Listener {
 
@@ -126,7 +127,7 @@ public class GameMap implements Listener {
         FileConfiguration cached = instance.getFileConfig().getCachedYML();
         long worldGenDelay = cached.getInt("world-generation-delay", 30) * 20L;
         int padding = Math.max(2, cached.getInt("padding", 125) + 2);
-        int maxBuild = Math.max(0, Math.min(255, cached.getInt("max-build-height", 255)));
+        
         new BukkitRunnable() {
             public void run() {
                 Bukkit.getLogger().info("Generating map " + name + "...");
@@ -139,14 +140,12 @@ public class GameMap implements Listener {
                 GameMap.this.center = new Location(world, oX+length/2, 80, oZ);
 
                 // Barrier
-                lowTickBlockChange(world, oX, oX+length, maxBuild,  maxBuild, oZ, oZ, Material.BARRIER, () -> incCompletion());
                 lowTickBlockChange(world, oX-1, oX-1, 0, world.getMaxHeight()-1, oZ, oZ, Material.BARRIER, () -> incCompletion());
                 lowTickBlockChange(world, oX+length, oX+length, 0, world.getMaxHeight()-1, oZ, oZ, Material.BARRIER, () -> incCompletion());
                 lowTickBlockChange(world, oX-1, oX+length, 0, world.getMaxHeight()-1, oZ+1, oZ+1, Material.BARRIER, () -> incCompletion());
                 lowTickBlockChange(world, oX-1, oX+length, 0, world.getMaxHeight()-1, oZ-1, oZ-1, Material.BARRIER, () -> incCompletion());
 
                 // Air
-                lowTickBlockChange(world, oX, oX+length, maxBuild+1,  world.getMaxHeight()-1, oZ, oZ, Material.AIR, () -> incCompletion());
                 if(padding > 2) {
                     lowTickBlockChange(world, oX - padding, oX - 2, 0, world.getMaxHeight() - 1, oZ - 1, oZ + 1, Material.AIR, () -> incCompletion());
                     lowTickBlockChange(world, oX + length + 1, oX + length + padding, 0, world.getMaxHeight() - 1, oZ - 1, oZ + 1, Material.AIR, () -> incCompletion());
@@ -169,9 +168,19 @@ public class GameMap implements Listener {
         return completedGenerationStages;
     }
 
+    public void generateCeiling(int ceilingY) {
+        FileConfiguration cached = OneBlockWide.getInstance().getFileConfig().getCachedYML();
+        int configHeight = Math.min(255, cached.getInt("max-build-height", 255));
+        int maxBuild = Math.max(0, Math.min(ceilingY, configHeight));
+        int oX = origin.getBlockX();
+        int oZ = origin.getBlockZ();
+        lowTickBlockChange(world, oX, oX+length, maxBuild,  maxBuild, oZ, oZ, Material.BARRIER, () -> incCompletion());
+        lowTickBlockChange(world, oX, oX+length, maxBuild+1,  world.getMaxHeight()-1, oZ, oZ, Material.AIR, () -> incCompletion());
+    }
+
     @NotNull
     public GenerationStatus getGenerationStatus() {
-        if(completedGenerationStages >= 12)
+        if(completedGenerationStages >= 10)
             return GenerationStatus.COMPLETE;
         if(completedGenerationStages > 0)
             return GenerationStatus.GENERATING;
@@ -384,7 +393,7 @@ public class GameMap implements Listener {
     private void incCompletion() {
         ++completedGenerationStages;
         Bukkit.getLogger().info("Map " + name + " stage: " + completedGenerationStages);
-        if(completedGenerationStages == 12) {
+        if(completedGenerationStages == 10) {
             Bukkit.getLogger().info("Map " + name + " is baked!");
             if(onGenerationComplete != null)
                 onGenerationComplete.run();
@@ -458,6 +467,7 @@ public class GameMap implements Listener {
         } while(Bukkit.getWorld(name) != null);
 
         GameMap map = new GameMap(name, length);
+
         return map;
     }
 

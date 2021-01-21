@@ -89,9 +89,13 @@ public final class Game implements Listener {
             case PRECOMBAT:
                 gameMap.getWorld().setPVP(false);
 
+                int highestSpawnedY = 0;
+
                 int index = 0, playerCount = Bukkit.getOnlinePlayers().size();
                 for(Player pl : Bukkit.getOnlinePlayers()) {
-                    pl.teleport(gameMap.getPlayerSpawnLocation(index++, playerCount));
+                    Location loc = gameMap.getPlayerSpawnLocation(index++, playerCount);
+                    pl.teleport(loc);
+                    if (loc.getBlockY() > highestSpawnedY) highestSpawnedY = loc.getBlockY();
                     pl.sendMessage(CC.NEON_BLUE + "Game> " + CC.MEDIUM_PURPLE + "Welcome to combat! PVP will be enabled soon.");
                     pl.sendMessage(CC.NEON_BLUE + "Game> " + CC.EGGSHELL + "We've given you some basic supplies, enjoy.");
                     pl.playSound(pl.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1F, 0.5F);
@@ -104,6 +108,8 @@ public final class Game implements Listener {
                     pl.setInvulnerable(false);
                     pl.setCollidable(false);
                 }
+
+                gameMap.generateCeiling(highestSpawnedY + 10);
 
                 countdown = initialPvPCountdown;
                 break;
@@ -229,7 +235,7 @@ public final class Game implements Listener {
         sb.append(CC.VIVID_BLUE_SKY);
         sb.append("(");
         sb.append(gameMap.getCompletedGenerationStages());
-        sb.append("/12)");
+        sb.append("/10)");
 
         return sb.toString();
     }
@@ -289,9 +295,23 @@ public final class Game implements Listener {
             case PRECOMBAT:
             case COMBAT:
             case WINNER:
+                e.setCancelled(true);
+                
+                if(e.getDeathMessage() != null){
+                    for(Player player : Bukkit.getOnlinePlayers()){
+                        player.sendMessage(e.getDeathMessage());
+                    }
+                }
+
+                if (p.getLocation().getY() < 20) {
+                    Bukkit.getScheduler().runTaskLater(OneBlockWide.getInstance(), () -> {
+                        Location locationClone = p.getLocation().clone();
+                        locationClone.setY(20);
+                        p.teleport(locationClone);
+                    }, 1L);
+                }
+
                 p.setGameMode(GameMode.SPECTATOR);
-                if(p.getLocation().getY() < 0)
-                    p.teleport(gameMap.getCenter());
                 break;
         }
         e.getDrops().add(new ItemStack(Material.BONE, 1));
